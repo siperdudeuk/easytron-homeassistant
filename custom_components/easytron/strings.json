@@ -1,0 +1,45 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EASYTRON Stiebel Eltron heatapp",
+        "description": "Connect to the local heatapp Zentrale base station.",
+        "data": {
+          "host": "Host or IP",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the base station.",
+      "invalid_auth": "Invalid username or password.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This EASYTRON base station is already configured."
+    }
+  },
+  "services": {
+    "set_room_target_temperature": {
+      "name": "Set room target temperature",
+      "description": "Set target temperature for a room (setpoint endpoint TODO)."
+    },
+    "start_inclusion": {
+      "name": "Start Z-Wave inclusion",
+      "description": "Open a ~28 second inclusion window."
+    },
+    "start_exclusion": {
+      "name": "Start Z-Wave exclusion",
+      "description": "Open a ~28 second exclusion window."
+    },
+    "network_heal": {
+      "name": "Network heal",
+      "description": "Reorganize the Z-Wave mesh."
+    },
+    "remove_device": {
+      "name": "Remove device (safe)",
+      "description": "Remove a device from the heatapp DB without touching the radio."
+    }
+  }
+}

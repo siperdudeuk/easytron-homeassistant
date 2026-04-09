@@ -1,0 +1,7 @@
+{
+  "name": "EASYTRON Stiebel Eltron heatapp",
+  "content_in_root": false,
+  "render_readme": true,
+  "homeassistant": "2024.4.0",
+  "iot_class": "Local Polling"
+}

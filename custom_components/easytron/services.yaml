@@ -1,0 +1,52 @@
+set_room_target_temperature:
+  name: Set room target temperature
+  description: >-
+    Set the target temperature for a room. NOTE: the setpoint endpoint is not
+    yet reverse-engineered, this service currently logs a warning and does not
+    change the device state.
+  fields:
+    room_id:
+      name: Room ID
+      description: Numeric room ID as shown in allmodules.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: box
+    temperature:
+      name: Temperature
+      description: Target temperature in Celsius.
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+
+start_inclusion:
+  name: Start Z-Wave inclusion
+  description: Start Z-Wave inclusion (~28s window).
+
+start_exclusion:
+  name: Start Z-Wave exclusion
+  description: Start Z-Wave exclusion (~28s window).
+
+network_heal:
+  name: Z-Wave network heal
+  description: Start a Z-Wave network reorganize (runs ~50 minutes).
+
+remove_device:
+  name: Remove device (safe)
+  description: >-
+    Remove a device from the heatapp DB only (radio is left untouched).
+    Uses the safe /shared-gw/api/gateway/removedevice endpoint — never
+    markandremovedevice.
+  fields:
+    device_id:
+      name: Device ID
+      description: The heatapp device ID (string) as shown in dbmodules.
+      required: true
+      selector:
+        text:

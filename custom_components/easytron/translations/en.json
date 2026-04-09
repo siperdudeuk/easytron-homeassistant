@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EASYTRON Stiebel Eltron heatapp",
+        "description": "Connect to the local heatapp Zentrale base station.",
+        "data": {
+          "host": "Host or IP",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the base station.",
+      "invalid_auth": "Invalid username or password.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This EASYTRON base station is already configured."
+    }
+  }
+}

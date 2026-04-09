@@ -1,0 +1,13 @@
+{
+  "domain": "easytron",
+  "name": "EASYTRON (Stiebel Eltron heatapp)",
+  "version": "0.1.0",
+  "documentation": "https://github.com/siperdudeuk/easytron-homeassistant",
+  "issue_tracker": "https://github.com/siperdudeuk/easytron-homeassistant/issues",
+  "codeowners": ["@siperdudeuk"],
+  "config_flow": true,
+  "dependencies": [],
+  "requirements": ["pycryptodome>=3.18.0"],
+  "iot_class": "local_polling",
+  "integration_type": "hub"
+}
