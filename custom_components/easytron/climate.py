@@ -7,8 +7,11 @@ from typing import Any
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
+    ClimateEntityDescription,
     HVACAction,
     HVACMode,
+    PRESET_COMFORT,
+    PRESET_SLEEP,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
@@ -40,7 +43,9 @@ class EasytronRoomClimate(EasytronRoomEntity, ClimateEntity):
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
+        | ClimateEntityFeature.PRESET_MODE
     )
+    _attr_preset_modes = [PRESET_COMFORT, PRESET_SLEEP]
     _attr_name = None  # use room device name
 
     def __init__(self, coord: EasytronCoordinator, room_id: int) -> None:
@@ -101,6 +106,43 @@ class EasytronRoomClimate(EasytronRoomEntity, ClimateEntity):
     def hvac_mode(self) -> HVACMode:
         # Without a reliable per-room off flag, assume HEAT.
         return HVACMode.HEAT
+
+    @property
+    def preset_mode(self) -> str | None:
+        room = self.room
+        if not room:
+            return None
+        if room.is_comfort_mode:
+            return PRESET_COMFORT
+        return PRESET_SLEEP
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Switch between comfort (day) and sleep (night) by setting the appropriate temp."""
+        room = self.room
+        if not room:
+            return
+        if preset_mode == PRESET_COMFORT and room.desired_temp_day is not None:
+            await self.coordinator.client.set_temperature(
+                self._room_id, room.desired_temp_day
+            )
+        elif preset_mode == PRESET_SLEEP and room.desired_temp_night is not None:
+            await self.coordinator.client.set_temperature(
+                self._room_id, room.desired_temp_night
+            )
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        room = self.room
+        if not room:
+            return {}
+        return {
+            "day_temperature": room.desired_temp_day,
+            "night_temperature": room.desired_temp_night,
+            "is_comfort_mode": room.is_comfort_mode,
+            "window_open": room.window_open,
+            "cooling": room.cooling,
+        }
 
     @property
     def hvac_action(self) -> HVACAction:

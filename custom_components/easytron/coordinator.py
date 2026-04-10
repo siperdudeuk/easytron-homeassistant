@@ -61,10 +61,13 @@ class RoomState:
     min_temperature: float | None
     max_temperature: float | None
     desired_temperature: float | None = None
+    desired_temp_day: float | None = None
+    desired_temp_night: float | None = None
     actual_temperature: float | None = None
     is_comfort_mode: bool | None = None
     window_open: bool | None = None
     cooling: bool = False
+    schedule: list[Any] = field(default_factory=list)
     device_ids: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -243,6 +246,8 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
                     )
                 room = data.rooms[rid]
                 room.desired_temperature = _as_float(rl.get("desiredTemperature"))
+                room.desired_temp_day = _as_float(rl.get("desiredTempDay"))
+                room.desired_temp_night = _as_float(rl.get("desiredTempNight"))
                 room.actual_temperature = _as_float(rl.get("actualTemperature"))
                 room.is_comfort_mode = rl.get("isComfortMode")
                 room.window_open = bool(rl.get("windowPosition"))

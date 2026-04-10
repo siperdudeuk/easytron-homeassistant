@@ -323,6 +323,19 @@ class EasytronClient:
             {"roomid": room_id, "temperature": temperature},
         )
 
+    async def get_switchingtimes(self, room_id: int) -> dict[str, Any]:
+        return await self.call(
+            "/api/room/switchingtimes/get", {"roomid": room_id}
+        )
+
+    async def set_switchingtimes(
+        self, room_id: int, switchingtimes: str
+    ) -> dict[str, Any]:
+        return await self.call(
+            "/api/room/switchingtimes/set",
+            {"roomid": room_id, "switchingtimes": switchingtimes},
+        )
+
     async def reorganize(self) -> dict[str, Any]:
         return await self.call("/shared-gw/api/gateway/reorganize")
 
