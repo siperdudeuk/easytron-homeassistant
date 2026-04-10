@@ -355,12 +355,20 @@ class EasytronClient:
         return []
 
     async def zway_neighbours(self, node_id: int) -> list[int]:
-        """Return the neighbours list for a node id (may be empty)."""
+        """Return the neighbours list for a node id (may be empty).
+
+        The neighbours field has type "binary" in Z-Way, so querying
+        .value directly returns raw bytes that JSON cannot decode.
+        We wrap with JSON.stringify() to get the decoded object and
+        then read .value from the parsed result.
+        """
         res = await self.zway_get(
-            f"zway.devices[{node_id}].data.neighbours.value"
+            f"JSON.stringify(zway.devices[{node_id}].data.neighbours)"
         )
-        if isinstance(res, list):
-            return [int(x) for x in res if isinstance(x, (int, float))]
+        if isinstance(res, dict):
+            val = res.get("value")
+            if isinstance(val, list):
+                return [int(x) for x in val if isinstance(x, (int, float))]
         return []
 
     async def zway_last_received(self, node_id: int) -> float | None:
