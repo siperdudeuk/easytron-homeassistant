@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -113,6 +113,8 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
         self._version_last: datetime | None = None
         self._last_allmodules: dict[str, Any] | None = None
         self._last_rooms: dict[int, RoomState] = {}
+        self._zway_last: datetime | None = None
+        self._zway_interval = timedelta(minutes=5)
 
     async def _async_update_data(self) -> EasytronData:
         try:
@@ -285,27 +287,38 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
 
         data.system = sys
 
-        # ---- Z-Way mesh (best-effort, read-only) ----
-        node_ids = [d.node_id for d in data.devices.values() if d.node_id]
-        if node_ids:
-            neighbour_tasks = [client.zway_neighbours(nid) for nid in node_ids]
-            last_rx_tasks = [client.zway_last_received(nid) for nid in node_ids]
-            try:
-                neighbour_results = await asyncio.gather(
-                    *neighbour_tasks, return_exceptions=True
-                )
-                last_rx_results = await asyncio.gather(
-                    *last_rx_tasks, return_exceptions=True
-                )
-                for nid, n, lr in zip(
-                    node_ids, neighbour_results, last_rx_results
-                ):
-                    if isinstance(n, list):
-                        data.mesh[nid] = n
-                    if isinstance(lr, (int, float)):
-                        data.zway_last_received[nid] = float(lr)
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.debug("Z-Way mesh fetch failed: %s", err)
+        # ---- Z-Way mesh (best-effort, read-only, every 5 min) ----
+        refresh_zway = (
+            self._zway_last is None
+            or (now - self._zway_last) > self._zway_interval
+        )
+        if refresh_zway:
+            node_ids = [d.node_id for d in data.devices.values() if d.node_id]
+            if node_ids:
+                neighbour_tasks = [client.zway_neighbours(nid) for nid in node_ids]
+                last_rx_tasks = [client.zway_last_received(nid) for nid in node_ids]
+                try:
+                    neighbour_results = await asyncio.gather(
+                        *neighbour_tasks, return_exceptions=True
+                    )
+                    last_rx_results = await asyncio.gather(
+                        *last_rx_tasks, return_exceptions=True
+                    )
+                    for nid, n, lr in zip(
+                        node_ids, neighbour_results, last_rx_results
+                    ):
+                        if isinstance(n, list):
+                            data.mesh[nid] = n
+                        if isinstance(lr, (int, float)):
+                            data.zway_last_received[nid] = float(lr)
+                    self._zway_last = now
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Z-Way mesh fetch failed: %s", err)
+        else:
+            # Reuse cached mesh data
+            if self.data:
+                data.mesh = self.data.mesh
+                data.zway_last_received = self.data.zway_last_received
 
         return data
 
