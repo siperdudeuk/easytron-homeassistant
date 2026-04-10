@@ -312,6 +312,17 @@ class EasytronClient:
             "/shared-gw/api/gateway/removedevice", {"id": device_id}
         )
 
+    async def room_list(self) -> dict[str, Any]:
+        return await self.call("/api/room/list")
+
+    async def set_temperature(
+        self, room_id: int, temperature: float
+    ) -> dict[str, Any]:
+        return await self.call(
+            "/api/room/settemperature",
+            {"roomid": room_id, "temperature": temperature},
+        )
+
     async def reorganize(self) -> dict[str, Any]:
         return await self.call("/shared-gw/api/gateway/reorganize")
 

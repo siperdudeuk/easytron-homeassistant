@@ -60,6 +60,11 @@ class RoomState:
     name: str
     min_temperature: float | None
     max_temperature: float | None
+    desired_temperature: float | None = None
+    actual_temperature: float | None = None
+    is_comfort_mode: bool | None = None
+    window_open: bool | None = None
+    cooling: bool = False
     device_ids: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -137,6 +142,7 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
         tasks = {
             "dbmodules": client.dbmodules(),
             "allmodules": client.allmodules(),
+            "roomlist": client.room_list(),
             "systemstate": client.systemstate(),
             "ping": client.ping(),
             "datetime": client.datetime_get(),
@@ -216,6 +222,22 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
             self._last_rooms = data.rooms
         else:
             data.rooms = self._last_rooms
+
+        # ---- Merge room_list data (desired/actual temps, comfort mode) ----
+        roomlist = res.get("roomlist") or {}
+        rl_rooms = roomlist.get("rooms") or {}
+        for rid_s, rl in rl_rooms.items():
+            try:
+                rid = int(rid_s)
+            except (TypeError, ValueError):
+                continue
+            if rid in data.rooms:
+                room = data.rooms[rid]
+                room.desired_temperature = _as_float(rl.get("desiredTemperature"))
+                room.actual_temperature = _as_float(rl.get("actualTemperature"))
+                room.is_comfort_mode = rl.get("isComfortMode")
+                room.window_open = bool(rl.get("windowPosition"))
+                room.cooling = bool(rl.get("cooling"))
 
         # ---- System state ----
         sys = SystemState()

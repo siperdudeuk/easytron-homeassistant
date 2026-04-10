@@ -59,8 +59,11 @@ class EasytronRoomClimate(EasytronRoomEntity, ClimateEntity):
         room = self.room
         if not room:
             return None
+        # Prefer room_list actual temperature (authoritative)
+        if room.actual_temperature is not None:
+            return room.actual_temperature
         devices = self.coordinator.data.devices
-        # Prefer an actual room sensor
+        # Fallback: prefer an actual room sensor
         for did in room.device_ids:
             d = devices.get(did)
             if d and d.type == TYPE_SENSOR and d.current_temperature is not None:
@@ -79,16 +82,11 @@ class EasytronRoomClimate(EasytronRoomEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> float | None:
-        # TODO: setpoint endpoint not yet reverse engineered. Expose the
-        # midpoint of the room's allowed range as a best-effort fallback so
-        # the UI has a slider within reasonable bounds.
         room = self.room
         if not room:
             return None
-        lo = room.min_temperature
-        hi = room.max_temperature
-        if lo is not None and hi is not None:
-            return round((lo + hi) / 2, 1)
+        if room.desired_temperature is not None:
+            return room.desired_temperature
         return None
 
     @property
@@ -133,17 +131,23 @@ class EasytronRoomClimate(EasytronRoomEntity, ClimateEntity):
 
     # ------------------------------------------------------------------
     async def async_set_temperature(self, **kwargs: Any) -> None:
-        """TODO: setpoint endpoint not yet reverse engineered.
-
-        Logged but not persisted. Calling this does NOT change the device.
-        """
+        """Set the target temperature for this room."""
         temp = kwargs.get(ATTR_TEMPERATURE)
-        _LOGGER.warning(
-            "Room %s: async_set_temperature(%s) — setpoint endpoint "
-            "is not yet reverse-engineered; no change made on the device.",
-            self._room_id,
-            temp,
+        if temp is None:
+            return
+        result = await self.coordinator.client.set_temperature(
+            self._room_id, float(temp)
         )
+        if not result.get("success"):
+            _LOGGER.error(
+                "Room %s: set_temperature(%s) failed: %s",
+                self._room_id, temp, result,
+            )
+            return
+        _LOGGER.debug(
+            "Room %s: set_temperature(%s) success", self._room_id, temp
+        )
+        await self.coordinator.async_request_refresh()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         _LOGGER.warning(
