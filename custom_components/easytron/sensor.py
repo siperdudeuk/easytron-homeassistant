@@ -49,6 +49,8 @@ async def async_setup_entry(
             EasytronMinBatterySensor(coord),
             EasytronMeshSizeSensor(coord),
             EasytronMeshBuiltSensor(coord),
+            EasytronDirectNodesSensor(coord),
+            EasytronRoutedNodesSensor(coord),
             EasytronReorgRunningSensor(coord),
             EasytronReorgLastRunSensor(coord),
             EasytronRemoteIpSensor(coord),
@@ -345,6 +347,62 @@ class EasytronMeshBuiltSensor(_SysBase):
     @property
     def native_value(self) -> int:
         return sum(1 for n in self.coordinator.data.mesh.values() if n)
+
+
+class EasytronDirectNodesSensor(_SysBase):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coord) -> None:
+        super().__init__(coord)
+        self._attr_unique_id = f"easytron_{self._host}_direct_nodes"
+        self._attr_name = "Nodes direct to base"
+
+    @property
+    def native_value(self) -> int:
+        mesh = self.coordinator.data.mesh
+        return sum(1 for nid, neighbours in mesh.items() if 1 in neighbours)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        mesh = self.coordinator.data.mesh
+        devices = self.coordinator.data.devices
+        direct = [nid for nid, neighbours in mesh.items() if 1 in neighbours]
+        names = []
+        for d in devices.values():
+            if d.node_id in direct:
+                names.append(d.name)
+        return {"direct_devices": names}
+
+
+class EasytronRoutedNodesSensor(_SysBase):
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coord) -> None:
+        super().__init__(coord)
+        self._attr_unique_id = f"easytron_{self._host}_routed_nodes"
+        self._attr_name = "Nodes routed via mesh"
+
+    @property
+    def native_value(self) -> int:
+        mesh = self.coordinator.data.mesh
+        return sum(
+            1 for nid, neighbours in mesh.items()
+            if neighbours and 1 not in neighbours
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        mesh = self.coordinator.data.mesh
+        devices = self.coordinator.data.devices
+        routed = [
+            nid for nid, neighbours in mesh.items()
+            if neighbours and 1 not in neighbours
+        ]
+        names = []
+        for d in devices.values():
+            if d.node_id in routed:
+                names.append(f"{d.name} (via {mesh.get(d.node_id, [])})")
+        return {"routed_devices": names}
 
 
 class EasytronReorgRunningSensor(_SysBase):
