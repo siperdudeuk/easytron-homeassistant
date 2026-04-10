@@ -118,6 +118,9 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
         self._last_rooms: dict[int, RoomState] = {}
         self._zway_last: datetime | None = None
         self._zway_interval = timedelta(minutes=5)
+        self._schedule_last: datetime | None = None
+        self._schedule_interval = timedelta(minutes=5)
+        self._cached_schedules: dict[int, list] = {}
 
     async def _async_update_data(self) -> EasytronData:
         try:
@@ -256,6 +259,24 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
                     room.min_temperature = _as_float(rl.get("minTemperature"))
                 if room.max_temperature is None:
                     room.max_temperature = _as_float(rl.get("maxTemperature"))
+
+        # ---- Schedules (every 5 min) ----
+        refresh_schedules = (
+            self._schedule_last is None
+            or (now - self._schedule_last) > self._schedule_interval
+        )
+        if refresh_schedules and data.rooms:
+            sched_tasks = {
+                rid: _safe(client.get_switchingtimes(rid), f"schedule_{rid}")
+                for rid in data.rooms
+            }
+            sched_results = await asyncio.gather(*sched_tasks.values())
+            for rid, result in zip(sched_tasks.keys(), sched_results):
+                if result and isinstance(result, dict) and result.get("switchingtimes"):
+                    self._cached_schedules[rid] = result["switchingtimes"]
+            self._schedule_last = now
+        for rid, room in data.rooms.items():
+            room.schedule = self._cached_schedules.get(rid, [])
 
         # ---- System state ----
         sys = SystemState()

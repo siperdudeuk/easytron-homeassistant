@@ -30,6 +30,7 @@ PLATFORMS = [
     "button",
     "number",
     "switch",
+    "time",
 ]
 
 # Device type strings reported by dbmodules
