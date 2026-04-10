@@ -224,20 +224,31 @@ class EasytronCoordinator(DataUpdateCoordinator[EasytronData]):
             data.rooms = self._last_rooms
 
         # ---- Merge room_list data (desired/actual temps, comfort mode) ----
+        # room_list returns groups[].rooms[] (list of dicts with "id" field)
         roomlist = res.get("roomlist") or {}
-        rl_rooms = roomlist.get("rooms") or {}
-        for rid_s, rl in rl_rooms.items():
-            try:
-                rid = int(rid_s)
-            except (TypeError, ValueError):
-                continue
-            if rid in data.rooms:
+        for group in roomlist.get("groups") or []:
+            for rl in group.get("rooms") or []:
+                rid = _as_int(rl.get("id"))
+                if rid is None:
+                    continue
+                # Create room if not already in allmodules
+                if rid not in data.rooms:
+                    data.rooms[rid] = RoomState(
+                        id=rid,
+                        name=rl.get("name") or f"Room {rid}",
+                        min_temperature=_as_float(rl.get("minTemperature")),
+                        max_temperature=_as_float(rl.get("maxTemperature")),
+                    )
                 room = data.rooms[rid]
                 room.desired_temperature = _as_float(rl.get("desiredTemperature"))
                 room.actual_temperature = _as_float(rl.get("actualTemperature"))
                 room.is_comfort_mode = rl.get("isComfortMode")
                 room.window_open = bool(rl.get("windowPosition"))
                 room.cooling = bool(rl.get("cooling"))
+                if room.min_temperature is None:
+                    room.min_temperature = _as_float(rl.get("minTemperature"))
+                if room.max_temperature is None:
+                    room.max_temperature = _as_float(rl.get("maxTemperature"))
 
         # ---- System state ----
         sys = SystemState()

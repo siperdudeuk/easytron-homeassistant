@@ -15,7 +15,7 @@ from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, TYPE_FLOOR, TYPE_SENSOR, TYPE_THERMOSTAT
+from .const import DOMAIN, TYPE_SENSOR, TYPE_THERMOSTAT
 from .coordinator import EasytronCoordinator
 from .entity import EasytronRoomEntity
 
@@ -31,13 +31,7 @@ async def async_setup_entry(
     entities: list = []
     data = coord.data
     for rid, room in data.rooms.items():
-        # Only rooms that contain a thermostat or floor port
-        has_heating = any(
-            data.devices.get(did) and data.devices[did].type in (TYPE_THERMOSTAT, TYPE_FLOOR)
-            for did in room.device_ids
-        )
-        if has_heating:
-            entities.append(EasytronRoomClimate(coord, rid))
+        entities.append(EasytronRoomClimate(coord, rid))
     async_add_entities(entities)
 
 
