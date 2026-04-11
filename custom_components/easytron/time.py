@@ -48,8 +48,8 @@ def _build_schedule(day_start: float, night_start: float) -> str:
     - day_start=0 and night_start>=24: always night
     """
     if day_start <= 0 and night_start <= 0:
-        # Always day — no night periods at all
-        return "||||||||||||||||||||"
+        # Always day — full 0-24 entries (how the heatapp app sets it)
+        return "0-24|0-24||0-24|0-24||0-24|0-24||0-24|0-24||0-24|0-24||0-24|0-24||0-24|0-24|"
     if day_start <= 0:
         # No morning night period, just evening
         day_entry = f"{night_start}-24||"
@@ -65,14 +65,17 @@ def _parse_schedule(switchingtimes: list[Any]) -> tuple[float | None, float | No
     """Extract day_start and night_start from the first day's schedule.
 
     Returns (day_start_hours, night_start_hours) or None if not parseable.
+
+    The L entries define night/setback periods. Typical patterns:
+    - Two entries: 0-6.5(L) + 22-24(L) = night 0-6:30, day 6:30-22, night 22-24
+    - Single 0-24(L) or two 0-24(L) entries = "always day" (system override)
+    - No entries / all null = "always day"
     """
     if not switchingtimes or len(switchingtimes) < 3:
         return None, None
 
-    # First day's 3 slots are entries 0, 1, 2
-    day_start = None
-    night_start = None
-
+    # Collect non-null entries for first day (slots 0-2)
+    entries = []
     for entry in switchingtimes[:3]:
         if entry is None:
             continue
@@ -80,8 +83,20 @@ def _parse_schedule(switchingtimes: list[Any]) -> tuple[float | None, float | No
         to = entry.get("to")
         if fr is None or to is None:
             continue
-        fr = float(fr)
-        to = float(to)
+        entries.append((float(fr), float(to)))
+
+    if not entries:
+        return None, None
+
+    # Check for "always day" pattern: any single entry spanning 0-24
+    # or multiple entries all spanning 0-24
+    if all(fr == 0 and to == 24 for fr, to in entries):
+        return None, None  # always day
+
+    day_start = None
+    night_start = None
+
+    for fr, to in entries:
         # Night period starting at 0 = morning, the "to" is when day starts
         if fr == 0 or fr < 1:
             day_start = to
