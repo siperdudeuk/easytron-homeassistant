@@ -42,7 +42,14 @@ def _build_schedule(day_start: float, night_start: float) -> str:
 
     Night mode runs from 0:00 to day_start and from night_start to 24:00.
     This is applied uniformly to all 7 days.
+
+    Special cases:
+    - day_start=0 and night_start=0: always day (no night periods)
+    - day_start=0 and night_start>=24: always night
     """
+    if day_start <= 0 and night_start <= 0:
+        # Always day — no night periods at all
+        return "||||||||||||||||||||"
     if day_start <= 0:
         # No morning night period, just evening
         day_entry = f"{night_start}-24||"
@@ -111,12 +118,25 @@ class EasytronDayStartTime(EasytronRoomEntity, TimeEntity):
     @property
     def native_value(self) -> dt_time | None:
         room = self.room
-        if not room or not room.schedule:
+        if not room:
             return None
+        if not room.schedule:
+            # No schedule = always day, show 00:00 (day starts at midnight)
+            return dt_time(0, 0)
         day_start, _ = _parse_schedule(room.schedule)
-        if day_start is not None:
-            return _hours_to_time(day_start)
-        return None
+        if day_start is None:
+            # No night periods found = always day
+            return dt_time(0, 0)
+        return _hours_to_time(day_start)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        room = self.room
+        if not room:
+            return {}
+        day_start, night_start = _parse_schedule(room.schedule) if room.schedule else (None, None)
+        always_day = day_start is None and night_start is None
+        return {"always_day_mode": always_day}
 
     async def async_set_value(self, value: dt_time) -> None:
         room = self.room
@@ -126,7 +146,7 @@ class EasytronDayStartTime(EasytronRoomEntity, TimeEntity):
         # Get current night_start from schedule
         _, night_start = _parse_schedule(room.schedule) if room.schedule else (None, None)
         if night_start is None:
-            night_start = 22.0  # default
+            night_start = 0.0 if new_day_start == 0 else 22.0
 
         schedule_str = _build_schedule(new_day_start, night_start)
         result = await self.coordinator.client.set_switchingtimes(
@@ -161,12 +181,23 @@ class EasytronNightStartTime(EasytronRoomEntity, TimeEntity):
     @property
     def native_value(self) -> dt_time | None:
         room = self.room
-        if not room or not room.schedule:
+        if not room:
             return None
+        if not room.schedule:
+            return dt_time(0, 0)
         _, night_start = _parse_schedule(room.schedule)
-        if night_start is not None:
-            return _hours_to_time(night_start)
-        return None
+        if night_start is None:
+            return dt_time(0, 0)
+        return _hours_to_time(night_start)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        room = self.room
+        if not room:
+            return {}
+        day_start, night_start = _parse_schedule(room.schedule) if room.schedule else (None, None)
+        always_day = day_start is None and night_start is None
+        return {"always_day_mode": always_day}
 
     async def async_set_value(self, value: dt_time) -> None:
         room = self.room
@@ -176,7 +207,7 @@ class EasytronNightStartTime(EasytronRoomEntity, TimeEntity):
         # Get current day_start from schedule
         day_start, _ = _parse_schedule(room.schedule) if room.schedule else (None, None)
         if day_start is None:
-            day_start = 6.0  # default
+            day_start = 0.0 if new_night_start == 0 else 6.0
 
         schedule_str = _build_schedule(day_start, new_night_start)
         result = await self.coordinator.client.set_switchingtimes(
