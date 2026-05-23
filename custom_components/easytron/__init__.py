@@ -1,4 +1,5 @@
 """EASYTRON Stiebel Eltron heatapp integration."""
+
 from __future__ import annotations
 
 import logging
@@ -59,9 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(
-        entry, PLATFORM_LIST
-    )
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORM_LIST)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
         if not hass.data[DOMAIN]:
@@ -116,13 +115,29 @@ def _register_services(hass: HomeAssistant) -> None:
             await client.remove_device(call.data["device_id"])
 
     async def _set_target(call: ServiceCall) -> None:
-        # TODO: target temperature endpoint not yet reverse-engineered.
-        _LOGGER.warning(
-            "set_room_target_temperature called for room=%s temp=%s — "
-            "setpoint endpoint is not yet implemented",
-            call.data.get("room_id"),
-            call.data.get("temperature"),
+        client = _get_any_client(hass)
+        if not client:
+            _LOGGER.error("set_room_target_temperature: no EASYTRON client available")
+            return
+        room_id = int(call.data["room_id"])
+        temperature = float(call.data["temperature"])
+        result = await client.set_temperature(room_id, temperature)
+        if not result.get("success"):
+            _LOGGER.error(
+                "set_room_target_temperature(room=%s, temp=%s) failed: %s",
+                room_id,
+                temperature,
+                result,
+            )
+            return
+        _LOGGER.debug(
+            "set_room_target_temperature(room=%s, temp=%s) OK", room_id, temperature
         )
+        # Refresh coordinators so HA picks up the change quickly
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            data = getattr(entry, "runtime_data", None)
+            if data and getattr(data, "coordinator", None):
+                await data.coordinator.async_request_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_NETWORK_HEAL, _heal)
     hass.services.async_register(DOMAIN, SERVICE_START_INCLUSION, _inc)
