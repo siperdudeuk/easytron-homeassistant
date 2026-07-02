@@ -67,3 +67,17 @@ PATH_REBOOT = "/common/admin/system/reboot"
 
 # Z-Way direct API (port 8083, read-only)
 ZWAY_PORT = 8083
+
+# Observed roomstatus codes from /api/room/list (read-only inference)
+# Confirmed by Nathan 2026-04-21: only 42/122 rooms were "on"; 132/99 rooms were
+# all on standby (99 is standby WITH an offline Z-Wave device on top).
+# 132 = standby (online)
+# 137 = standby (online) — variant observed 2026-07-02 with the whole house in
+#       summer standby: desiredTemperature null, isComfortMode false,
+#       status "ok" (every 99-room simultaneously showed status "problem")
+#  99 = standby (device offline — separate `status:"problem"` field also set)
+# 122 = on, manually at floor (target == minTemperature)
+#  42 = on, auto schedule (day or night slot)
+#  51 = on, auto schedule (legacy reference — seen historically)
+ROOMSTATUS_STANDBY_CODES = frozenset({132, 137, 99})
+ROOMSTATUS_ACTIVE_CODES = frozenset({42, 51, 122})
