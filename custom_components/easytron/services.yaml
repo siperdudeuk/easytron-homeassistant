@@ -1,9 +1,9 @@
 set_room_target_temperature:
   name: Set room target temperature
   description: >-
-    Set the target temperature for a room. NOTE: the setpoint endpoint is not
-    yet reverse-engineered, this service currently logs a warning and does not
-    change the device state.
+    Set the target temperature for a room. Equivalent to calling
+    climate.set_temperature on the room's climate.* entity; kept as a
+    service for automation convenience.
   fields:
     room_id:
       name: Room ID

@@ -53,9 +53,12 @@ buttons.
 - `easytron.network_heal` — trigger reorganize
 - `easytron.remove_device` — remove a device from the heatapp database
   (uses the safe `removedevice` endpoint, never `markandremovedevice`)
-- `easytron.set_room_target_temperature` — *stubbed (see Limitations)*
+- `easytron.set_room_target_temperature` — set a room's current target
+  temperature by numeric room ID (parity with the climate entity's
+  `set_temperature`, useful for automations that only know the ID)
 
-\* See *Limitations* below for caveats around target temperature writes.
+\* See *Limitations* below for caveats around per-room *stored* day/night
+configuration writes.
 
 ## Installation
 
@@ -104,13 +107,58 @@ No data leaves your network. Cloud (`heatapp.de`) is never contacted.
 
 ## Limitations / known issues
 
-- **Target temperature writes are not implemented** — the heatapp setpoint
-  endpoint hasn't been fully reverse engineered. Climate `set_temperature`,
-  the room min/max numbers, and the `set_room_target_temperature` service
-  log a warning and no-op for now. Read-side temperature monitoring is
-  fully functional.
-- **Room min/max bounds and the heating-active switch** are read-only at
-  the moment for the same reason.
+### What writes work today
+
+- **Climate `set_temperature` (current target) — works.** Routes through
+  `POST /api/room/settemperature` and persists; verified end-to-end on
+  firmware 2.2.39533 (Laundry target 18.0 → 18.5 → 18.0, change stable
+  across coordinator refreshes).
+- **`easytron.set_room_target_temperature` service — works** (as of this
+  release; it now routes to the same endpoint as the climate entity).
+- **Switching-times (schedule)** — read + write via
+  `/api/room/switchingtimes/{get,set}`.
+
+### What writes are NOT possible from the local API
+
+The following per-room *stored config* values are read-only via this
+integration — and as far as we can tell, they cannot be made writable
+locally at all:
+
+- **`number.<room>_day_temperature` / `_night_temperature`** — these are
+  the stored day/night setpoints used by the room's schedule (distinct
+  from the current target). The entities accept writes but they currently
+  call `set_temperature`, which updates the *current target* and leaves
+  the *stored* day/night values unchanged. Effectively misleading.
+- **`number.<room>_min_temperature` / `_max_temperature`** — explicit
+  stubs (log `read-only bound` warning).
+- **`climate.async_set_hvac_mode`** — logs `not implemented` and no-ops.
+
+### Why these can't be made writable
+
+Packet capture on the same WiFi AP as both the iPhone HeatApp! app and
+the EASYTRON shows that **the iPhone app only talks to the heatapp.de
+cloud servers** (over HTTPS:443), even when on the same LAN. EASYTRON
+maintains a persistent TLS connection to the cloud and applies these
+stored-config writes via that encrypted channel — they never traverse
+the local HTTP API. The local `/api/...` surface exposes only the
+endpoints listed above. Adding day/night/min/max writes would require
+either:
+
+1. Reverse-engineering the EASYTRON↔heatapp.de TLS protocol and
+   implementing a HA → cloud → device path (would also need the user's
+   heatapp.de account credentials and would be brittle to upstream API
+   changes), or
+2. Upstream firmware adding the missing local endpoints, which is out
+   of our control.
+
+Until then: change day/night/min/max in the HeatApp! app on iPhone, OR
+use the global Stiebel WPM-side comfort/eco setpoint and operating-mode
+controls if the property uses the
+[Stiebel Eltron ISG integration](https://github.com/pail23/stiebel_eltron_isg_component)
+for whole-property eco/comfort schedule flips.
+
+### Other constraints
+
 - **Single config entry** — only one EASYTRON per HA installation is
   currently supported (multiple entries with different hosts have not
   been tested).
